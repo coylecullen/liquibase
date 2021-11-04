@@ -20,6 +20,7 @@ import liquibase.statement.core.DropTableStatement;
 import org.junit.Test;
 
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Date;
@@ -213,5 +214,26 @@ public class OracleIntegrationTest extends AbstractIntegrationTest {
     @Test
     public void testDiffExternalForeignKeys() throws Exception {
         //cross-schema security for oracle is a bother, ignoring test for now
+    }
+
+    @Test
+    public void testDdlLockTimeout() throws Exception {
+        // open up a transaction and create a table in it and insert value
+        this.getDatabase().getConnection().setAutoCommit(false);
+        Statement queryIndex = ((JdbcConnection) this.getDatabase().getConnection()).getUnderlyingConnection().createStatement();
+        queryIndex.execute("create table lock_tab (id  number)");
+        // String transactionSql = "create table lock_tab (id  number)";
+        this.getDatabase().getConnection().setAutoCommit(false);
+        Statement queryIndex2 = ((JdbcConnection) this.getDatabase().getConnection()).getUnderlyingConnection().createStatement();
+        queryIndex2.execute("insert into lock_tab values (1)");
+
+        Liquibase liquibase = createLiquibase("changelogs/common/ddllock.sql");
+
+        try {
+            liquibase.update(this.contexts);
+        } catch (ValidationFailedException e) {
+            e.printDescriptiveError(System.out);
+            throw e;
+        }
     }
 }
